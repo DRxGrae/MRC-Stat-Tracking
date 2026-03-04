@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 
 import discord
 from discord.ext import commands
 
 from bot.config import load_config
+
+
+logger = logging.getLogger("mrc_bot")
 
 
 class MrcBot(commands.Bot):
@@ -17,13 +19,34 @@ class MrcBot(commands.Bot):
 
     async def setup_hook(self) -> None:
         await self.load_extension("bot.cogs.image_dimensions")
+        await self.load_extension("bot.cogs.get_stats")
+
+        cmds = list(self.tree.get_commands())
+        logger.info("Registered %d app command(s):", len(cmds))
+        for c in cmds:
+            # ContextMenu has `.type`; slash commands don't.
+            ctype = getattr(c, "type", None)
+            logger.info("- %s (type=%s)", c.name, ctype)
 
         if self.dev_guild_id is not None:
             guild = discord.Object(id=self.dev_guild_id)
             self.tree.copy_global_to(guild=guild)
-            await self.tree.sync(guild=guild)
 
-        await self.tree.sync()
+            synced = await self.tree.sync(guild=guild)
+            logger.info(
+                "Synced %d command(s) to dev guild id=%s",
+                len(synced),
+                self.dev_guild_id,
+            )
+
+        synced_global = await self.tree.sync()
+        logger.info("Synced %d command(s) globally", len(synced_global))
+
+    async def on_ready(self) -> None:
+        logger.info(
+            "Logged in as %s (%s)", self.user, self.user.id if self.user else "?"
+        )
+        logger.info("Connected guilds: %d", len(self.guilds))
 
 
 def main() -> None:

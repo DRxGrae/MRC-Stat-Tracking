@@ -1,9 +1,11 @@
-FROM python:3.12-slim
+FROM python:3.12
 
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True \
+    PADDLEOCR_HOME=/app/.cache
 
 RUN pip install --no-cache-dir uv
 

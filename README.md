@@ -5,6 +5,7 @@ Python Discord bot using `discord.py`, managed with `uv`, designed to run in Doc
 ## Features
 
 - Message context menu command: right-click a message -> Apps -> `Image dimensions`
+- Message context menu command: right-click a message -> Apps -> `Get stats` (admin-only OCR + debug overlay)
 - Admin-only (requires Discord `Administrator` permission)
 - Attachment-only: reads image attachments on the selected message
 - Replies ephemerally with each image's `WIDTHxHEIGHT`
@@ -13,60 +14,55 @@ Python Discord bot using `discord.py`, managed with `uv`, designed to run in Doc
 
 Prereqs:
 
-- Python 3.11+ installed
+- Python 3.12 installed (required for OCR dependencies)
 - `uv` installed (`pip install uv`)
 
 Install deps:
 
 ```bash
-uv sync
+uv python install 3.12.12
+
+# If you previously created a venv with a different Python version, delete it first.
+# PowerShell: Remove-Item -Recurse -Force .venv
+# cmd.exe:    rmdir /s /q .venv
+
+uv sync -p 3.12.12
 ```
+
+Create a local `.env` (recommended):
+
+```bat
+copy .env.example .env
+```
+
+Set `DISCORD_TOKEN` inside `.env`.
+
+The bot will automatically load `.env` on startup for local development.
 
 Run:
 
-PowerShell:
-
-```powershell
-$env:DISCORD_TOKEN = "your_token_here"
-uv run python -m bot
-```
-
-cmd.exe:
-
-```bat
-set DISCORD_TOKEN=your_token_here
-uv run python -m bot
-```
-
-Linux/macOS:
-
 ```bash
-DISCORD_TOKEN=your_token_here uv run python -m bot
+uv run python -m bot
 ```
 
 Optional (faster command updates while developing):
 
 - Set `DISCORD_GUILD_ID` to a server ID you control. The bot will sync commands to that guild as well as globally.
 
-PowerShell:
+Add it to `.env`:
 
-```powershell
-$env:DISCORD_GUILD_ID = "123456789012345678"
-uv run python -m bot
+```text
+DISCORD_GUILD_ID=123456789012345678
 ```
 
-cmd.exe:
+## PyCharm run configuration
 
-```bat
-set DISCORD_GUILD_ID=123456789012345678
-uv run python -m bot
-```
-
-Linux/macOS:
-
-```bash
-DISCORD_GUILD_ID=123456789012345678 uv run python -m bot
-```
+1. Set interpreter to the project venv: `.venv\\Scripts\\python.exe`
+2. Create a Run Configuration:
+   - Type: Python
+   - Module name: `bot`
+   - Working directory: repo root
+   - Environment variables: `DISCORD_TOKEN=...` (and optional `DISCORD_GUILD_ID=...`)
 
 ## Discord setup
 
@@ -82,6 +78,7 @@ DISCORD_GUILD_ID=123456789012345678 uv run python -m bot
 
 - `DISCORD_TOKEN` (required): bot token
 - `DISCORD_GUILD_ID` (optional): dev guild id for faster command sync
+- `PADDLEOCR_HOME` (optional): where OCR models/cache are stored (Docker default: `/app/.cache`)
 
 ## Run on DigitalOcean (Docker)
 
@@ -92,14 +89,16 @@ You can run this on either DigitalOcean App Platform (recommended for simple hos
 1. Push this repo to GitHub/GitLab
 2. In DigitalOcean: Create -> Apps -> link your repo
 3. Choose Dockerfile-based build (it will use `Dockerfile`)
-4. Add environment variables:
-   - `DISCORD_TOKEN` (required)
-   - `DISCORD_GUILD_ID` (optional; speeds up command iteration)
-5. Deploy
+4. Make sure the component type is a `Worker` (not a Web Service)
+5. Add environment variables:
+    - `DISCORD_TOKEN` (required)
+    - `DISCORD_GUILD_ID` (optional; speeds up command iteration)
+6. Deploy
 
 Notes:
 
 - Global app command updates can take time to propagate in Discord. For faster iteration, set `DISCORD_GUILD_ID` while testing.
+- The first OCR run may download models. App Platform containers have ephemeral disks; expect re-downloads on redeploy unless you add persistent storage.
 
 ### Option B: DigitalOcean Droplet
 
@@ -168,9 +167,15 @@ In a server where the bot is installed:
 2. Right click the message -> Apps -> `Image dimensions`
 3. If you have Administrator permission, the bot responds ephemerally with the dimensions
 
+OCR:
+
+1. Find a message with a scoreboard screenshot as an image attachment
+2. Right click the message -> Apps -> `Get stats`
+3. If you have Administrator permission, the bot responds ephemerally with an embed containing parsed stats + a debug overlay image
+
 ## Numpy integration
 
-The bot uses Pillow to open images. Converting to a numpy array later is straightforward:
+The OCR pipeline already works with numpy arrays via OpenCV. If you open images with Pillow elsewhere, converting is straightforward:
 
 ```py
 arr = np.asarray(img)
