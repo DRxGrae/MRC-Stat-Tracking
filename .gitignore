@@ -1,1 +1,28 @@
 .idea
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environments
+.venv/
+venv/
+ENV/
+
+# OS
+.DS_Store
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# uv
+.uv/
