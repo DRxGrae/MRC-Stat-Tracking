@@ -8,6 +8,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from bot.app.ocr_client import OcrServiceError, scan_image
+
 IMAGE_EXTS = {
     ".png",
     ".jpg",
@@ -62,31 +64,62 @@ class GetStats(commands.Cog):
         await interaction.response.defer(ephemeral=True, thinking=True)
 
         try:
-            from bot.app.get_stats import get_stats
-
             image_bytes = await att.read()
-            result = await asyncio.to_thread(get_stats, image_bytes)
+
+            payload, debug_png = await scan_image(
+                image_bytes=image_bytes,
+                filename=att.filename,
+                content_type=att.content_type,
+                include_debug=True,
+            )
+
+            meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+            home = payload.get("home") if isinstance(payload.get("home"), list) else []
+            away = payload.get("away") if isinstance(payload.get("away"), list) else []
+
+            def fmt_team(rows: list[dict]) -> str:
+                header = f"{'Player':<18} {'G':>2} {'A':>2} {'P':>2} {'I':>2} {'S':>2} {'Score':>5}"
+                lines = [header]
+                for r in rows[:5]:
+                    name = str(r.get("name") or "")
+                    name = " ".join(name.strip().split())
+                    if len(name) > 18:
+                        name = name[:15] + "..."
+                    lines.append(
+                        f"{name:<18} {int(r.get('goal') or 0):>2} {int(r.get('assist') or 0):>2} "
+                        f"{int(r.get('passes') or 0):>2} {int(r.get('interception') or 0):>2} "
+                        f"{int(r.get('save') or 0):>2} {int(r.get('score') or 0):>5}"
+                    )
+                return "\n".join(lines)
+
+            desc = (
+                f"Best strategy: {meta.get('best_strategy') or 'n/a'}"
+                f" (score {float(meta.get('best_score') or 0.0):.2f})\n"
+                f"Anchors: {int(meta.get('anchors_found') or 0)}/{int(meta.get('anchors_expected') or 0)}"
+            )
 
             embed = discord.Embed(
                 title="Scoreboard OCR",
-                description=result.text,
+                description=desc,
                 color=discord.Color.green(),
             )
             embed.add_field(
-                name="Home", value=f"```\n{result.embed_home}\n```", inline=False
+                name="Home", value=f"```\n{fmt_team(home)}\n```", inline=False
             )
             embed.add_field(
-                name="Away", value=f"```\n{result.embed_away}\n```", inline=False
+                name="Away", value=f"```\n{fmt_team(away)}\n```", inline=False
             )
             embed.set_footer(text=f"Source: {att.filename}")
 
-            file = discord.File(
-                fp=io.BytesIO(result.debug_png),
-                filename="debug.png",
-            )
-            embed.set_image(url="attachment://debug.png")
+            if debug_png:
+                file = discord.File(fp=io.BytesIO(debug_png), filename="debug.png")
+                embed.set_image(url="attachment://debug.png")
+                await interaction.followup.send(embed=embed, file=file, ephemeral=True)
+            else:
+                await interaction.followup.send(embed=embed, ephemeral=True)
 
-            await interaction.followup.send(embed=embed, file=file, ephemeral=True)
+        except OcrServiceError as e:
+            await interaction.followup.send(f"OCR service error: {e}", ephemeral=True)
 
         except Exception as e:  # noqa: BLE001
             await interaction.followup.send(

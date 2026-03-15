@@ -5,7 +5,7 @@ Python Discord bot using `discord.py`, managed with `uv`, designed to run in Doc
 ## Features
 
 - Message context menu command: right-click a message -> Apps -> `Image dimensions`
-- Message context menu command: right-click a message -> Apps -> `Get stats` (admin-only OCR + debug overlay)
+- Message context menu command: right-click a message -> Apps -> `Get stats` (admin-only; calls OCR web service)
 - Admin-only (requires Discord `Administrator` permission)
 - Attachment-only: reads image attachments on the selected message
 - Replies ephemerally with each image's `WIDTHxHEIGHT`
@@ -14,7 +14,7 @@ Python Discord bot using `discord.py`, managed with `uv`, designed to run in Doc
 
 Prereqs:
 
-- Python 3.12 installed (required for OCR dependencies)
+- Python 3.12 installed
 - `uv` installed (`pip install uv`)
 
 Install deps:
@@ -36,6 +36,9 @@ copy .env.example .env
 ```
 
 Set `DISCORD_TOKEN` inside `.env`.
+If you want `Get stats` to work locally, also set `OCR_SERVICE_URL` and `OCR_API_KEY`.
+
+OCR web service lives in `..\\mrc-webset` (separate DigitalOcean Web Service).
 
 The bot will automatically load `.env` on startup for local development.
 
@@ -78,7 +81,8 @@ DISCORD_GUILD_ID=123456789012345678
 
 - `DISCORD_TOKEN` (required): bot token
 - `DISCORD_GUILD_ID` (optional): dev guild id for faster command sync
-- `PADDLEOCR_HOME` (optional): where OCR models/cache are stored (Docker default: `/app/.cache`)
+- `OCR_SERVICE_URL` (optional): base URL of OCR web service (enables `Get stats`)
+- `OCR_API_KEY` (optional): shared secret for OCR web service
 
 ## Run on DigitalOcean (Docker)
 
@@ -172,6 +176,8 @@ OCR:
 1. Find a message with a scoreboard screenshot as an image attachment
 2. Right click the message -> Apps -> `Get stats`
 3. If you have Administrator permission, the bot responds ephemerally with an embed containing parsed stats + a debug overlay image
+
+If you see `OCR service error: Missing env var: OCR_SERVICE_URL`, configure `.env` (local) or App Platform env vars (DigitalOcean).
 
 ## Numpy integration
 
